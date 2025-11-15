@@ -8,6 +8,7 @@ from training.losses import get_loss_fn
 from training.callbacks import EarlyStopping, ModelCheckpoint
 from utils.logger import setup_logger
 import os
+import wandb
 
 class Trainer:
     """My training manager """
@@ -94,4 +95,151 @@ class Trainer:
             )
         else:
             return None
+        
+    def train_epoch(self, epoch: int) -> float:
+        """Train for one epoch"""
+        self.model.train()
+        epoch_loss = 0.0
+
+        pbar = tqdm(self.train_loader, desc=f"Epoch {epoch+1}/{self.config.training.epochs}")
+
+        for batch_idx, batch in enumerate(pbar):
+            x = batch['x'].to(self.device)
+            y = batch['y'].to(self.device)
+
+            #Forward pass with mixed precision
+            if self.scaler is not None:
+                with autocast():
+                    predictions = self.model(x)
+
+                    # Handle different output types
+                    if self.config.model.output_type == "gaussian":
+                        mu, sigma = predictions
+                        loss = self.criterion(mu, sigma, y)
+                    else:
+                        loss = self.criterion(predictions, y)
+                
+                #Backward pass
+                self.optimizer.zero_grad()
+                self.scaler.scale(loss).backward()
+
+                # Gradient clipping
+                if self.config.training.grad_clip > 0:
+                    self.scaler.unscale_(self.optimizer)
+                    torch.nn.utils.clip_grad_norm_(
+                        self.model.parameters(),
+                        self.config.training.grad_clip
+                    )
+                
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+            
+            else:
+                predictions = self.model(x)
+
+                if self.config.model.output_type == "gaussian":
+                    mu, sigma = predictions
+                    loss = self.criterion(mu, sigma, y)
+                else:
+                    loss = self.criterion(predictions, y)
+                
+                self.optimizer.zero_grad()
+                loss.backward()
+
+                if self.config.training.grad_clip > 0:
+                    torch.nn.utils.clip_grad_norm_(
+                        self.model.parameters(),
+                        self.config.training.grad_clip
+                    )
+                
+                self.optimizer.step()
+
+            # Update scheduler (for OneCycleLR)
+            if isinstance(self.scheduler, torch.optim.lr_scheduler.OneCycleLR):
+                self.scheduler.step()
+            
+            epoch_loss += loss.item()
+            pbar.set_postfix({'loss': loss.item()})
+
+            # Log to wandb
+            if self.config.training.use_wandb and batch_idx % self.config.training.log_frequency == 0:
+                wandb.log({
+                    'train_loss_step': loss.item(),
+                    'learning_rate': self.optimizer.param_groups[0]['lr']
+                })
+
+        return epoch_loss / len(self.train_loader)
+
+    @torch.no_grad()
+    def validate(self) -> float:
+        """Validate the model"""
+        self.model.eval()
+        val_loss = 0.0
+        
+        for batch in self.val_loader:
+            x = batch['x'].to(self.device)
+            y = batch['y'].to(self.device)
+            
+            predictions = self.model(x)
+            
+            if self.config.model.output_type == "gaussian":
+                mu, sigma = predictions
+                loss = self.criterion(mu, sigma, y)
+            else:
+                loss = self.criterion(predictions, y)
+            
+            val_loss += loss.item()
+        
+        return val_loss / len(self.val_loader)
+    
+    def train(self):
+        """Full training loop"""
+        self.logger.info(f"Starting training for {self.config.training.epochs} epochs")
+        self.logger.info(f"Model parameters: {self.model.get_num_parameters():,}")
+        
+        for epoch in range(self.config.training.epochs):
+            # Train
+            train_loss = self.train_epoch(epoch)
+            self.train_losses.append(train_loss)
+            
+            # Validate
+            val_loss = self.validate()
+            self.val_losses.append(val_loss)
+            
+            # Update scheduler (for ReduceLROnPlateau)
+            if isinstance(self.scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+                self.scheduler.step(val_loss)
+            
+            # Log
+            self.logger.info(
+                f"Epoch {epoch+1}/{self.config.training.epochs} - "
+                f"Train Loss: {train_loss:.6f}, Val Loss: {val_loss:.6f}"
+            )
+            
+            if self.config.training.use_wandb:
+                wandb.log({
+                    'epoch': epoch + 1,
+                    'train_loss': train_loss,
+                    'val_loss': val_loss
+                })
+            
+            # Save checkpoint
+            metrics = {
+                'train_loss': train_loss,
+                'val_loss': val_loss
+            }
+            self.checkpoint(self.model, self.optimizer, epoch, metrics)
+            
+            # Early stopping
+            if self.early_stopping:
+                if self.early_stopping(val_loss, epoch):
+                    self.logger.info(
+                        f"Early stopping triggered at epoch {epoch+1}. "
+                        f"Best epoch was {self.early_stopping.best_epoch+1}"
+                    )
+                    break
+        
+        self.logger.info("Training completed")
+    
+    
 
