@@ -5,6 +5,12 @@ Usage: python train.py --config config.yaml --model lstm
 
 import argparse
 import os
+import sys
+# Add project root to Python path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 from config.base_config import Config
 from utils.reproducibility import set_seed
 from utils.logger import init_wandb, setup_logger
@@ -23,27 +29,33 @@ from models.create_model import create_model
 
 def main():
     parser = argparse.ArgumentParser(description='Train time series forecasting model')
-    parser.add_argument('--config', type=str, default='config.yaml', help='Path to config file')
-    parser.add_argument('--model', type=str, default='lstm', choices=['naive', 'lstm', 'gru', 'tcn', 'transformer'])
-    parser.add_argument('--data', type=str, required=True, help='Path to data file')
-    parser.add_argument('--experiment', type=str, default='baseline', help='Experiment name')
-    parser.add_argument('--seed', type=int, default=42, help='Random seed')
+    parser.add_argument('--config', type=str, default='config/wallmart_config.yaml', help='Path to config file')
+    parser.add_argument('--model', type=str, default=None, choices=['naive', 'lstm', 'gru', 'tcn', 'transformer'], help='Model type (overrides config)')
+    parser.add_argument('--data', type=str, default=None, help='Path to data file (overrides config)')
+    parser.add_argument('--experiment', type=str, default=None, help='Experiment name (overrides config)')
+    parser.add_argument('--seed', type=int, default=None, help='Random seed (overrides config)')
     parser.add_argument('--no-wandb', action='store_true', help='Disable W&B logging')
 
     args = parser.parse_args()
 
-    # Load or create config
+    # Load config from file
     if os.path.exists(args.config):
         config = Config.from_yaml(args.config)
     else:
+        print(f"Warning: Config file {args.config} not found. Using default config.")
         config = Config()
     
-    # Override with command line args
-    config.model.model_type = args.model
-    config.data.data_path = args.data
-    config.experiment_name = args.experiment
-    config.training.seed = args.seed
-    config.training.use_wandb = not args.no_wandb
+    # Override with command line args (only if provided)
+    if args.model is not None:
+        config.model.model_type = args.model
+    if args.data is not None:
+        config.data.data_path = args.data
+    if args.experiment is not None:
+        config.experiment_name = args.experiment
+    if args.seed is not None:
+        config.training.seed = args.seed
+    if args.no_wandb:
+        config.training.use_wandb = False
     
     # Set seed for reproducibility
     set_seed(config.training.seed, config.training.deterministic)   
@@ -131,10 +143,16 @@ def main():
     # Fit on training data only
     cols_to_scale = [config.data.target_col] + config.data.numeric_covariates
     if cols_to_scale:
-        scaler.fit(train_df[cols_to_scale], series_col=config.data.series_id_col)
-        train_df[cols_to_scale] = scaler.transform(train_df[cols_to_scale], series_col=config.data.series_id_col)
-        val_df[cols_to_scale] = scaler.transform(val_df[cols_to_scale], series_col=config.data.series_id_col)
-        test_df[cols_to_scale] = scaler.transform(test_df[cols_to_scale], series_col=config.data.series_id_col)
+        # Include series_id_col in DataFrame if it exists (needed for panel data scaling)
+        if config.data.series_id_col is not None:
+            fit_cols = cols_to_scale + [config.data.series_id_col]
+        else:
+            fit_cols = cols_to_scale
+        
+        scaler.fit(train_df[fit_cols], series_col=config.data.series_id_col)
+        train_df[cols_to_scale] = scaler.transform(train_df[fit_cols], series_col=config.data.series_id_col)[cols_to_scale]
+        val_df[cols_to_scale] = scaler.transform(val_df[fit_cols], series_col=config.data.series_id_col)[cols_to_scale]
+        test_df[cols_to_scale] = scaler.transform(test_df[fit_cols], series_col=config.data.series_id_col)[cols_to_scale]
     
     # Create dataloaders
     logger.info("Creating dataloaders...")

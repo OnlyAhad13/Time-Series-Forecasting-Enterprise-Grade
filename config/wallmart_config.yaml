@@ -1,0 +1,109 @@
+data:
+  data_path: "data/processed/walmart_panel.csv"
+  timestamp_col: "timestamp"
+  target_col: "sales"
+  series_id_col: "series_id"  # Store-Department combinations
+  
+  # Preprocessing
+  freq: "W-FRI"  # Weekly data ending on Friday (Walmart's fiscal week)
+  fill_method: "interpolate"
+  outlier_method: "iqr"
+  outlier_threshold: 3.5  # More lenient for holiday spikes
+  
+  # Splits (chronological)
+  train_ratio: 0.70   # 2010-02 to 2011-08
+  val_ratio: 0.15     # 2011-08 to 2012-02
+  test_ratio: 0.15    # 2012-02 to 2012-10
+  
+  # Feature engineering
+  lags: [1, 2, 4, 8, 52]  # 1wk, 2wk, 1mo, 2mo, 1yr ago
+  rolling_windows: [4, 8, 12, 52]  # 1mo, 2mo, 3mo, 1yr windows
+  rolling_stats: ["mean", "std", "min", "max"]
+  
+  # Temporal features (critical for retail)
+  use_temporal_features: true
+  cyclical_encoding: true  # Weekly, monthly, yearly patterns
+  
+  # Scaling
+  scaler_type: "robust"  # Better for outliers (holiday sales)
+  
+  # Covariates (Walmart-specific features)
+  numeric_covariates:
+    - "Temperature"
+    - "Fuel_Price"
+    - "CPI"
+    - "Unemployment"
+    - "MarkDown1"
+    - "MarkDown2"
+    - "MarkDown3"
+    - "MarkDown4"
+    - "MarkDown5"
+    - "store_size"
+  
+  categorical_covariates:
+    - "store_type"  # Type A, B, C stores
+    - "IsHoliday"   # Holiday weeks
+
+model:
+  model_type: "lstm"
+  
+  # Architecture
+  input_dim: 1  # Will be auto-updated with all features
+  hidden_dim: 256  # Larger for complex retail patterns
+  num_layers: 3
+  dropout: 0.3
+  
+  # Forecasting
+  lookback: 52     # 1 year of weekly data (52 weeks)
+  horizon: 8       # Predict next 8 weeks (2 months)
+  
+  # Output type
+  output_type: "quantile"  # Uncertainty is critical for inventory
+  quantiles: [0.1, 0.25, 0.5, 0.75, 0.9]  # More quantiles for better uncertainty
+  
+  model_params: {}
+
+training:
+  batch_size: 64  # Larger batch for 3,331 series
+  epochs: 15
+  learning_rate: 0.0005  # Lower LR for stability
+  weight_decay: 0.00001
+  grad_clip: 1.0
+  
+  # Scheduler
+  scheduler: "plateau"  # Reduce LR when plateaus
+  scheduler_params:
+    patience: 5
+    factor: 0.5
+  
+  # Mixed precision
+  mixed_precision: true
+  accumulation_steps: 1
+  
+  # Early stopping
+  early_stopping: true
+  patience: 15  # More patience for complex data
+  min_delta: 0.001
+  
+  # Checkpointing
+  save_best: true
+  save_frequency: 10
+  
+  # Reproducibility
+  seed: 42
+  deterministic: true
+  
+  # Logging
+  log_frequency: 20
+  use_wandb: true
+  wandb_project: "walmart-sales-forecasting"
+  wandb_entity: null
+
+# Paths
+root_dir: "."
+data_dir: "data"
+output_dir: "outputs"
+checkpoint_dir: "checkpoints"
+log_dir: "logs"
+
+experiment_name: "walmart_lstm_quantile"

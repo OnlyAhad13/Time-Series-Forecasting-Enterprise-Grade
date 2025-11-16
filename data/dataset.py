@@ -59,12 +59,12 @@ class TimeSeriesDataset(Dataset):
             # Panel data - create sequences per series
             for series_id in self.data[self.series_id_col].unique():
                 series_mask = self.data[self.series_id_col] == series_id
-                series_indices = self.data[series_mask].index.tolist()
+                series_data = self.data[series_mask].reset_index(drop=True)
+                series_len = len(series_data)
                 
-                for i in range(0, len(series_indices) - self.lookback - self.horizon + 1, self.stride):
-                    start_idx = series_indices[i]
-                    end_idx = series_indices[i + self.lookback + self.horizon - 1] + 1
-                    sequences.append((start_idx, end_idx, series_id))
+                for i in range(0, series_len - self.lookback - self.horizon + 1, self.stride):
+                    # Store the series_id and relative position within the series
+                    sequences.append((i, i + self.lookback + self.horizon, series_id))
         
         return sequences
     
@@ -79,12 +79,18 @@ class TimeSeriesDataset(Dataset):
             Dictionary with:
                 - x: Input features (lookback, num_features)
                 - y: Target values (horizon,)
-                - timestamp: Timestamps for the forecast period
         """
         start_idx, end_idx, series_id = self.sequences[idx]
         
         # Extract sequence
-        sequence = self.data.iloc[start_idx:end_idx]
+        if self.series_id_col is None:
+            # Single series - use direct indexing
+            sequence = self.data.iloc[start_idx:end_idx]
+        else:
+            # Panel data - filter by series_id first, then use relative indexing
+            series_mask = self.data[self.series_id_col] == series_id
+            series_data = self.data[series_mask].reset_index(drop=True)
+            sequence = series_data.iloc[start_idx:end_idx]
         
         # Input features (historical)
         x = sequence.iloc[:self.lookback][self.feature_cols].values.astype(np.float32)
@@ -94,6 +100,5 @@ class TimeSeriesDataset(Dataset):
         
         return {
             'x': torch.from_numpy(x),
-            'y': torch.from_numpy(y),
-            'timestamp': sequence.iloc[self.lookback:].index.values
+            'y': torch.from_numpy(y)
         }

@@ -38,12 +38,16 @@ class TimeSeriesScaler:
             #Single series
             self.global_scaler.fit(data)
         else:
-            #Panel data
+            #Panel data - fit per-series scalers and also fit global scaler as fallback
             for series_id in data[series_col].unique():
                 series_data = data[data[series_col] == series_id].drop(columns=[series_col])
                 scaler = self._create_scaler()
                 scaler.fit(series_data)
                 self.scalers[series_id] = scaler
+            
+            # Fit global scaler on all data (without series_col) as fallback for unseen series
+            all_data = data.drop(columns=[series_col])
+            self.global_scaler.fit(all_data)
             
         return self
     
@@ -67,8 +71,8 @@ class TimeSeriesScaler:
                     #Fallback to global scaler
                     scaled = self.global_scaler.transform(series_data)
                 
-
-            results.loc[mask, series_data.columns] = scaled
+                # Update results for this series
+                results.loc[mask, series_data.columns] = scaled
         
         return results
     

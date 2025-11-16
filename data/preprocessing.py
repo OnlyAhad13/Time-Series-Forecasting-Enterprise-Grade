@@ -52,9 +52,6 @@ class TimeSeriesPreprocessor:
         df = df.copy()
         
         if self.series_id_col is not None:
-            #Single series
-            df = self._fill_single_series(df, method)
-        else:
             #Panel data - process each series
             processed_series = []
             for series_id in df[self.series_id_col].unique():
@@ -63,6 +60,9 @@ class TimeSeriesPreprocessor:
                 processed_series.append(series_df)
 
             df = pd.concat(processed_series, ignore_index=True)
+        else:
+            #Single series
+            df = self._fill_single_series(df, method)
         
         return df
     
@@ -70,6 +70,11 @@ class TimeSeriesPreprocessor:
         """Fill missing timestamps for single series"""
 
         df = df.sort_values(self.timestamp_col)
+       
+        # Handle duplicate timestamps by taking the last value for each timestamp
+        if df[self.timestamp_col].duplicated().any():
+            df = df.drop_duplicates(subset=[self.timestamp_col], keep='last')
+            df = df.sort_values(self.timestamp_col)
        
         #Create complete time range
         full_range = pd.date_range(
@@ -86,7 +91,7 @@ class TimeSeriesPreprocessor:
 
         #Fill missing values
         if method == "forward":
-            df = df.fillna(method="ffill")
+            df = df.ffill()
         elif method == "interpolate":
             numeric_cols = df.select_dtypes(include=[np.number]).columns
             df[numeric_cols] = df[numeric_cols].interpolate(method="linear")

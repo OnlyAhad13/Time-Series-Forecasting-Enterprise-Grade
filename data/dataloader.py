@@ -1,7 +1,7 @@
 import pandas as pd
 from torch.utils.data import DataLoader
 from typing import Tuple
-from dataset import TimeSeriesDataset
+from .dataset import TimeSeriesDataset
 from config.base_config import Config
 
 def create_dataloaders(

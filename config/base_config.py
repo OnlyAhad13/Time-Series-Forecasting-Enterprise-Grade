@@ -16,7 +16,7 @@ class DataConfig:
     categorical_covariates: List[str] = field(default_factory=list)
 
     #Preprocessing
-    freq: str = "H"
+    freq: str = "W-FRI"
     fill_method: str = "forward"
     outlier_method: str = "iqr"
     outlier_threshold: float = 3.0
@@ -24,7 +24,7 @@ class DataConfig:
     #Splits
     train_ratio: float = 0.7
     val_ratio: float = 0.15
-    test_ration: float = 0.15
+    test_ratio: float = 0.15
 
     #Feature Engineering
     lags: List[int] = field(default_factory=lambda: [1,2,3,7,14,28])
@@ -55,7 +55,7 @@ class ModelConfig:
 
     #Output type
     output_type: str = "point"
-    quantiles: List[str] = field(default_factory=lambda: [0.1, 0.5, 0.9])
+    quantiles: List[float] = field(default_factory=lambda: [0.1, 0.5, 0.9])
 
     #Model-specific params
     model_params: Dict[str, Any] = field(default_factory=dict)

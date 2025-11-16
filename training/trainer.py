@@ -80,12 +80,18 @@ class Trainer:
                 **config.scheduler_params
             )
         elif config.scheduler == "plateau":
+            # Default values for ReduceLROnPlateau
+            default_params = {
+                'mode': 'min',
+                'factor': 0.5,
+                'patience': 5,
+                'verbose': False
+            }
+            # Merge with config params (config overrides defaults)
+            scheduler_params = {**default_params, **config.scheduler_params}
             return torch.optim.lr_scheduler.ReduceLROnPlateau(
                 self.optimizer,
-                mode='min',
-                factor=0.5,
-                patience=5,
-                **config.scheduler_params
+                **scheduler_params
             )
         elif config.scheduler == "cosine":
             return torch.optim.lr_scheduler.CosineAnnealingLR(

@@ -67,8 +67,8 @@ class LSTMSeq2Seq(BaseForecaster):
 
         #Encode
         _, hidden = self.encoder(x)
-        #Initialize decoder input with last value
-        decoder_input = x[:, -1, 0:1]
+        #Initialize decoder input with last value - shape (batch_size, 1, 1) for batch_first=True
+        decoder_input = x[:, -1:, 0:1]  # Keep sequence dimension
         predictions = []
 
         for t in range(self.horizon):
@@ -78,20 +78,20 @@ class LSTMSeq2Seq(BaseForecaster):
 
             #Generate predictions
             if self.output_type == "point":
-                pred = self.fc_out(decoder_output)
-                predictions.append(pred.squeeze(1))
-                decoder_input = pred
+                pred = self.fc_out(decoder_output)  # (batch_size, 1, 1)
+                predictions.append(pred.squeeze(1))  # (batch_size, 1)
+                decoder_input = pred  # (batch_size, 1, 1) - keep sequence dim
             elif self.output_type == "quantile":
-                pred = self.fc_out(decoder_output)
-                predictions.append(pred.squeeze(1))
+                pred = self.fc_out(decoder_output)  # (batch_size, 1, num_quantiles)
+                predictions.append(pred.squeeze(1))  # (batch_size, num_quantiles)
                 #Use median for next input
                 median_idx = len(self.config.quantiles) // 2
-                decoder_input = pred[:, :, median_idx:median_idx+1]
+                decoder_input = pred[:, :, median_idx:median_idx+1]  # (batch_size, 1, 1)
             elif self.output_type == "gaussian":
-                mu = self.fc_mu(decoder_output).squeeze(1)
-                sigma = self.fc_sigma(decoder_output).squeeze(1)
-                predictions.append((mu, sigma))
-                decoder_input = mu.unsqueeze(1).unsqueeze(2)
+                mu = self.fc_mu(decoder_output)  # (batch_size, 1, 1)
+                sigma = self.fc_sigma(decoder_output)  # (batch_size, 1, 1)
+                predictions.append((mu.squeeze(1), sigma.squeeze(1)))  # Both (batch_size, 1)
+                decoder_input = mu  # (batch_size, 1, 1) - keep sequence dim
         
         if self.output_type == "gaussian":
             mus = torch.stack([p[0] for p in predictions], dim=1)

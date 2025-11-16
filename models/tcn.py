@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-import models.base_model as BaseForecaster
-import config.base_config as ModelConfig
+from models.base_model import BaseForecaster
+from config.base_config import ModelConfig
 
 class Chomp1d(nn.Module):
     """Remove padding from TCN output"""

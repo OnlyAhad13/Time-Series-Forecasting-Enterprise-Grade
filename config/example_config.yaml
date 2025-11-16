@@ -1,0 +1,100 @@
+data:
+  data_path: "data/raw/timeseries.csv"
+  timestamp_col: "timestamp"
+  target_col: "value"
+  series_id_col: null
+  
+  # Covariates
+  numeric_covariates: []
+  categorical_covariates: []
+  
+  # Preprocessing
+  freq: "H"
+  fill_method: "forward"
+  outlier_method: "iqr"
+  outlier_threshold: 3.0
+  
+  # Splits
+  train_ratio: 0.7
+  val_ratio: 0.15
+  test_ratio: 0.15
+  
+  # Feature engineering
+  lags: [1, 2, 3, 7, 14, 28]
+  rolling_windows: [7, 14, 28]
+  rolling_stats: ["mean", "std", "min", "max"]
+  
+  # Temporal features
+  use_temporal_features: true
+  cyclical_encoding: true
+  
+  # Scaling
+  scaler_type: "standard"
+
+model:
+  model_type: "lstm"
+  
+  # Architecture
+  input_dim: 1
+  hidden_dim: 128
+  num_layers: 2
+  dropout: 0.2
+  
+  # Forecasting
+  lookback: 168
+  horizon: 24
+  
+  # Output type
+  output_type: "point"
+  quantiles: [0.1, 0.5, 0.9]
+  
+  # Model-specific params
+  model_params:
+    kernel_size: 3
+    nhead: 8
+    dim_feedforward: 512
+
+training:
+  # Optimization
+  batch_size: 64
+  epochs: 100
+  learning_rate: 0.001
+  weight_decay: 0.00001
+  grad_clip: 1.0
+  
+  # Scheduler
+  scheduler: "onecycle"
+  scheduler_params: {}
+  
+  # Training settings
+  mixed_precision: true
+  accumulation_steps: 1
+  
+  # Early stopping
+  early_stopping: true
+  patience: 10
+  min_delta: 0.0001
+  
+  # Checkpointing
+  save_best: true
+  save_frequency: 5
+  
+  # Reproducibility
+  seed: 42
+  deterministic: true
+  
+  # Logging
+  log_frequency: 10
+  use_wandb: true
+  wandb_project: "ts-forecasting"
+  wandb_entity: null
+
+# Paths
+root_dir: "."
+data_dir: "data"
+output_dir: "outputs"
+checkpoint_dir: "checkpoints"
+log_dir: "logs"
+
+# Experiment
+experiment_name: "baseline"

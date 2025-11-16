@@ -43,7 +43,8 @@ class LagFeatureEngine:
                 if self.series_id_col is None:
                     df[col_name] = getattr(rolling, stat)()
                 else:
-                    df[col_name] = getattr(rolling, stat).reset_index(0, drop=True)
+                    # For panel data, call the function first, then reset_index
+                    df[col_name] = getattr(rolling, stat)().reset_index(0, drop=True)
         
         return df
 
