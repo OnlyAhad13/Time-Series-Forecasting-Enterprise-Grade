@@ -15,7 +15,6 @@ def set_seed(seed: int = 42, deterministic: bool = True):
     random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-    torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
     
     if deterministic:
