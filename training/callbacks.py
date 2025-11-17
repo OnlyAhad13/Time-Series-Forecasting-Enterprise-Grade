@@ -106,8 +106,8 @@ class ModelCheckpoint:
                 'optimizer_state_dict': optimizer.state_dict(),
                 'metrics': metrics
             }
-        
-        # Create directory if needed
-        os.makedirs(os.path.dirname(self.filepath), exist_ok=True)
-        torch.save(checkpoint, self.filepath)
+            
+            # Create directory if needed
+            os.makedirs(os.path.dirname(self.filepath), exist_ok=True)
+            torch.save(checkpoint, self.filepath)
     

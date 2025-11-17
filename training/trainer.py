@@ -181,6 +181,7 @@ class Trainer:
         """Validate the model"""
         self.model.eval()
         val_loss = 0.0
+        num_batches = 0
         
         for batch in self.val_loader:
             x = batch['x'].to(self.device)
@@ -195,8 +196,13 @@ class Trainer:
                 loss = self.criterion(predictions, y)
             
             val_loss += loss.item()
+            num_batches += 1
         
-        return val_loss / len(self.val_loader)
+        if num_batches == 0:
+            self.logger.warning("Validation dataloader is empty. Returning 0.0 as validation loss.")
+            return 0.0
+        
+        return val_loss/num_batches
     
     def train(self):
         """Full training loop"""

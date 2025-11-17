@@ -185,35 +185,75 @@ class TimeSeriesPreprocessor:
         return df
     
     def chronological_split(
-        self,
-        df: pd.DataFrame,
-        train_ratio: float = 0.7,
-        val_ratio: float = 0.15,
-        test_ratio: float = 0.15
+    self,
+    df: pd.DataFrame,
+    train_ratio: float = 0.65,
+    val_ratio: float = 0.20,
+    test_ratio: float = 0.15
     ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-        """
-        Split data chronologically with no leakage
-        
-        Args:
-            df: Input DataFrame (must be sorted by timestamp)
-            train_ratio: Training set ratio
-            val_ratio: Validation set ratio
-            test_ratio: Test set ratio
-            
-        Returns:
-            train_df, val_df, test_df
-        """
+        print("Chronological Split")
         assert abs(train_ratio + val_ratio + test_ratio - 1.0) < 1e-6
+        print("Split ratios are valid")
         
-        df = df.sort_values(self.timestamp_col)
-        n = len(df)
+        # Sort by series and timestamp
+        df = df.sort_values([self.series_id_col, self.timestamp_col] 
+                            if self.series_id_col 
+                            else [self.timestamp_col])
         
-        train_end = int(n * train_ratio)
-        val_end = int(n * (train_ratio + val_ratio))
-        
-        train_df = df.iloc[:train_end].copy()
-        val_df = df.iloc[train_end:val_end].copy()
-        test_df = df.iloc[val_end:].copy()
+        if self.series_id_col is None:
+            # Single series
+            print("Only Single Series")
+            n = len(df)
+            train_end = int(n * train_ratio)
+            val_end = int(n * (train_ratio + val_ratio))
+            
+            train_df = df.iloc[:train_end].copy()
+            val_df = df.iloc[train_end:val_end].copy()
+            test_df = df.iloc[val_end:].copy()
+        else:
+            # Panel data
+            train_dfs, val_dfs, test_dfs = [], [], []
+            
+            for series_id in df[self.series_id_col].unique():
+                series_df = df[df[self.series_id_col] == series_id].copy()
+                series_df = series_df.sort_values(self.timestamp_col)
+                
+                n = len(series_df)
+                
+                lookback = 12
+                horizon = 8 
+                min_required = lookback + horizon
+                
+                if n < min_required:
+                    print(f"Skipping series {series_id}: only {n} points (need {min_required})")
+                    continue
+                
+                train_end = int(n * train_ratio)
+                val_end = int(n * (train_ratio + val_ratio))
+                
+                # Ensure each split has minimum data
+                if train_end < lookback + horizon:
+                    print(f"  Skipping series {series_id}: train too short ({train_end} < {lookback + horizon})")
+                    continue
+                
+                if (val_end - train_end) < horizon:
+                    print(f"  Skipping series {series_id}: val too short ({val_end - train_end} < {horizon})")
+                    continue
+                
+                if (n - val_end) < horizon:
+                    print(f"  Skipping series {series_id}: test too short ({n - val_end} < {horizon})")
+                    continue
+                
+                train_dfs.append(series_df.iloc[:train_end])
+                val_dfs.append(series_df.iloc[train_end:val_end])
+                test_dfs.append(series_df.iloc[val_end:])
+            
+            print(f"\n  Kept {len(train_dfs)} series out of {df[self.series_id_col].nunique()}")
+            
+            train_df = pd.concat(train_dfs, ignore_index=True)
+            val_df = pd.concat(val_dfs, ignore_index=True)
+            test_df = pd.concat(test_dfs, ignore_index=True)
+            print(f"Train: {len(train_df)}, Val: {len(val_df)}, Test: {len(test_df)}")
         
         return train_df, val_df, test_df
 

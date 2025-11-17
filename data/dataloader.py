@@ -25,7 +25,7 @@ def create_dataloaders(
         train_loader, val_loader, test_loader
     """
     # Determine feature columns
-    feature_cols = [config.data.target_col] + config.data.numeric_covariates
+    feature_cols = config.data.numeric_covariates
     
     # Create datasets
     train_dataset = TimeSeriesDataset(
@@ -60,6 +60,27 @@ def create_dataloaders(
         series_id_col=config.data.series_id_col,
         stride=config.model.horizon  # Non-overlapping for testing
     )
+    
+    # Check dataset sizes and warn if empty
+    if len(train_dataset) == 0:
+        raise ValueError(
+            f"Training dataset is empty. Need at least {config.model.lookback + config.model.horizon} "
+            f"data points per series, but training data may be too short."
+        )
+    if len(val_dataset) == 0:
+        import warnings
+        warnings.warn(
+            f"Validation dataset is empty. Need at least {config.model.lookback + config.model.horizon} "
+            f"data points per series. Consider reducing validation stride or increasing validation data size.",
+            UserWarning
+        )
+    if len(test_dataset) == 0:
+        import warnings
+        warnings.warn(
+            f"Test dataset is empty. Need at least {config.model.lookback + config.model.horizon} "
+            f"data points per series.",
+            UserWarning
+        )
     
     # Create dataloaders
     train_loader = DataLoader(

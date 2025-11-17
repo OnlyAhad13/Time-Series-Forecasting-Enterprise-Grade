@@ -161,7 +161,7 @@ def main():
     )
     
     # Update config with input dimension
-    feature_cols = [config.data.target_col] + config.data.numeric_covariates
+    feature_cols = config.data.numeric_covariates
     config.model.input_dim = len(feature_cols)
     
     # Create model
@@ -203,5 +203,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-

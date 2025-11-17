@@ -11,16 +11,16 @@ data:
   outlier_threshold: 3.5  # More lenient for holiday spikes
   
   # Splits (chronological)
-  train_ratio: 0.70   # 2010-02 to 2011-08
-  val_ratio: 0.15     # 2011-08 to 2012-02
-  test_ratio: 0.15    # 2012-02 to 2012-10
+  train_ratio: 0.65   
+  val_ratio: 0.20 
+  test_ratio: 0.15
   
   # Feature engineering
-  lags: [1, 2, 4, 8, 52]  # 1wk, 2wk, 1mo, 2mo, 1yr ago
-  rolling_windows: [4, 8, 12, 52]  # 1mo, 2mo, 3mo, 1yr windows
+  lags: [1, 2, 4, 8, 26]  # 1wk, 2wk, 1mo, 2mo, 6mo ago
+  rolling_windows: [4, 8, 26]  # 1mo, 2mo, 3mo, 1yr windows
   rolling_stats: ["mean", "std", "min", "max"]
   
-  # Temporal features (critical for retail)
+  # Temporal features
   use_temporal_features: true
   cyclical_encoding: true  # Weekly, monthly, yearly patterns
   
@@ -51,11 +51,11 @@ model:
   input_dim: 1  # Will be auto-updated with all features
   hidden_dim: 256  # Larger for complex retail patterns
   num_layers: 3
-  dropout: 0.3
+  dropout: 0.2
   
   # Forecasting
-  lookback: 52     # 1 year of weekly data (52 weeks)
-  horizon: 8       # Predict next 8 weeks (2 months)
+  lookback: 12     # 6 months of weekly data 
+  horizon: 8       # Predict next 8 weeks
   
   # Output type
   output_type: "quantile"  # Uncertainty is critical for inventory
@@ -64,9 +64,9 @@ model:
   model_params: {}
 
 training:
-  batch_size: 64  # Larger batch for 3,331 series
-  epochs: 15
-  learning_rate: 0.0005  # Lower LR for stability
+  batch_size: 128  
+  epochs: 12
+  learning_rate: 0.0003  # Lower LR for stability
   weight_decay: 0.00001
   grad_clip: 1.0
   
