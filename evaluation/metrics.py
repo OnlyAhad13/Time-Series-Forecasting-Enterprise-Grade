@@ -53,7 +53,7 @@ class ForecastMetrics:
         losses = {}
 
         for i, q in enumerate(quantiles):
-            pred_q = y_pred[:, : i]
+            pred_q = y_pred[:, :, i]
             errors = y_true - pred_q
             loss = np.maximum(q*errors, (q-1)*errors)
             losses[f"quantile_{q}"] = np.mean(loss)
