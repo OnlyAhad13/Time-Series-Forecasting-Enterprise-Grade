@@ -50,10 +50,11 @@ class LSTMSeq2Seq(BaseForecaster):
         
         self.dropout = nn.Dropout(config.dropout)
     
-    def forward(self, x: torch.Tensor, teacher_forcing_ratio: float = 0.0) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, y: torch.Tensor = None, teacher_forcing_ratio: float = 0.0) -> torch.Tensor:
         """
         Args:
             x: (batch_size, lookback, input_dim)
+            y: (batch_size, horizon) - Target values for teacher forcing
             teacher_forcing_ratio: Probability of using ground truth during training
             
         Returns:
@@ -68,6 +69,7 @@ class LSTMSeq2Seq(BaseForecaster):
         #Encode
         _, hidden = self.encoder(x)
         #Initialize decoder input with last value - shape (batch_size, 1, 1) for batch_first=True
+        # Assumption: target is at index 0. If not, this needs to be adjusted.
         decoder_input = x[:, -1:, 0:1]  # Keep sequence dimension
         predictions = []
 
@@ -80,18 +82,36 @@ class LSTMSeq2Seq(BaseForecaster):
             if self.output_type == "point":
                 pred = self.fc_out(decoder_output)  # (batch_size, 1, 1)
                 predictions.append(pred.squeeze(1))  # (batch_size, 1)
-                decoder_input = pred  # (batch_size, 1, 1) - keep sequence dim
+                
+                # Teacher forcing
+                if y is not None and torch.rand(1).item() < teacher_forcing_ratio:
+                    # Use ground truth for next step
+                    # y is (batch_size, horizon)
+                    # We need y[:, t] which is (batch_size,) -> (batch_size, 1, 1)
+                    decoder_input = y[:, t].view(batch_size, 1, 1)
+                else:
+                    decoder_input = pred  # (batch_size, 1, 1) - keep sequence dim
+                    
             elif self.output_type == "quantile":
                 pred = self.fc_out(decoder_output)  # (batch_size, 1, num_quantiles)
                 predictions.append(pred.squeeze(1))  # (batch_size, num_quantiles)
-                #Use median for next input
-                median_idx = len(self.config.quantiles) // 2
-                decoder_input = pred[:, :, median_idx:median_idx+1]  # (batch_size, 1, 1)
+                
+                if y is not None and torch.rand(1).item() < teacher_forcing_ratio:
+                    decoder_input = y[:, t].view(batch_size, 1, 1)
+                else:
+                    #Use median for next input
+                    median_idx = len(self.config.quantiles) // 2
+                    decoder_input = pred[:, :, median_idx:median_idx+1]  # (batch_size, 1, 1)
+                    
             elif self.output_type == "gaussian":
                 mu = self.fc_mu(decoder_output)  # (batch_size, 1, 1)
                 sigma = self.fc_sigma(decoder_output)  # (batch_size, 1, 1)
                 predictions.append((mu.squeeze(1), sigma.squeeze(1)))  # Both (batch_size, 1)
-                decoder_input = mu  # (batch_size, 1, 1) - keep sequence dim
+                
+                if y is not None and torch.rand(1).item() < teacher_forcing_ratio:
+                    decoder_input = y[:, t].view(batch_size, 1, 1)
+                else:
+                    decoder_input = mu  # (batch_size, 1, 1) - keep sequence dim
         
         if self.output_type == "gaussian":
             mus = torch.stack([p[0] for p in predictions], dim=1)

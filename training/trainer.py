@@ -101,6 +101,15 @@ class Trainer:
             )
         else:
             return None
+            
+    def _compute_loss(self, predictions, y):
+        """Compute loss based on output type"""
+        if self.config.model.output_type == "gaussian":
+            mu, sigma = predictions
+            loss = self.criterion(mu, sigma, y)
+        else:
+            loss = self.criterion(predictions, y)
+        return loss
         
     def train_epoch(self, epoch: int) -> float:
         """Train for one epoch"""
@@ -116,14 +125,13 @@ class Trainer:
             #Forward pass with mixed precision
             if self.scaler is not None:
                 with autocast():
-                    predictions = self.model(x)
-
-                    # Handle different output types
-                    if self.config.model.output_type == "gaussian":
-                        mu, sigma = predictions
-                        loss = self.criterion(mu, sigma, y)
+                    # Pass y for teacher forcing if model supports it
+                    if isinstance(self.model, BaseForecaster) and hasattr(self.model, 'cell_type') and self.model.cell_type in ["LSTM", "GRU"]:
+                         predictions = self.model(x, y=y, teacher_forcing_ratio=self.config.training.teacher_forcing_ratio)
                     else:
-                        loss = self.criterion(predictions, y)
+                        predictions = self.model(x)
+
+                    loss = self._compute_loss(predictions, y)
                 
                 #Backward pass
                 self.optimizer.zero_grad()
@@ -141,13 +149,12 @@ class Trainer:
                 self.scaler.update()
             
             else:
-                predictions = self.model(x)
-
-                if self.config.model.output_type == "gaussian":
-                    mu, sigma = predictions
-                    loss = self.criterion(mu, sigma, y)
+                if isinstance(self.model, BaseForecaster) and hasattr(self.model, 'cell_type') and self.model.cell_type in ["LSTM", "GRU"]:
+                     predictions = self.model(x, y=y, teacher_forcing_ratio=self.config.training.teacher_forcing_ratio)
                 else:
-                    loss = self.criterion(predictions, y)
+                    predictions = self.model(x)
+
+                loss = self._compute_loss(predictions, y)
                 
                 self.optimizer.zero_grad()
                 loss.backward()
@@ -188,12 +195,7 @@ class Trainer:
             y = batch['y'].to(self.device)
             
             predictions = self.model(x)
-            
-            if self.config.model.output_type == "gaussian":
-                mu, sigma = predictions
-                loss = self.criterion(mu, sigma, y)
-            else:
-                loss = self.criterion(predictions, y)
+            loss = self._compute_loss(predictions, y)
             
             val_loss += loss.item()
             num_batches += 1

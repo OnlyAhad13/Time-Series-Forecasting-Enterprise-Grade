@@ -189,7 +189,9 @@ class TimeSeriesPreprocessor:
     df: pd.DataFrame,
     train_ratio: float = 0.65,
     val_ratio: float = 0.20,
-    test_ratio: float = 0.15
+    test_ratio: float = 0.15,
+    lookback: int = 12,
+    horizon: int = 8
     ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         print("Chronological Split")
         assert abs(train_ratio + val_ratio + test_ratio - 1.0) < 1e-6
@@ -220,8 +222,6 @@ class TimeSeriesPreprocessor:
                 
                 n = len(series_df)
                 
-                lookback = 12
-                horizon = 8 
                 min_required = lookback + horizon
                 
                 if n < min_required:

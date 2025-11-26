@@ -70,6 +70,7 @@ class TrainingConfig:
     learning_rate: float = 1e-3
     weight_decay: float = 1e-5
     grad_clip: float = 1.0
+    teacher_forcing_ratio: float = 0.5
 
     #Scheduler
     scheduler: str = "onecycle"
