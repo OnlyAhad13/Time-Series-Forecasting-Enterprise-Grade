@@ -1,3 +1,13 @@
+<h1 align="center">🔮 Production-Grade Time Series Forecasting</h1>
+
+<p align="center">
+  <strong>A comprehensive, research-grade deep learning framework for multi-horizon time series forecasting</strong>
+</p>
+
+<p align="center">
+  <em>Implementing MAANG/NVIDIA-level engineering standards with state-of-the-art neural architectures</em>
+</p>
+
 <p align="center">
   <img src="https://img.shields.io/badge/PyTorch-2.0+-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white" alt="PyTorch"/>
   <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"/>
@@ -13,15 +23,6 @@
   <img src="https://img.shields.io/badge/Matplotlib-3.7+-11557c?style=flat-square&logo=plotly&logoColor=white" alt="Matplotlib"/>
 </p>
 
-<h1 align="center">🔮 Production-Grade Time Series Forecasting</h1>
-
-<p align="center">
-  <strong>A comprehensive, research-grade deep learning framework for multi-horizon time series forecasting</strong>
-</p>
-
-<p align="center">
-  <em>Implementing MAANG/NVIDIA-level engineering standards with state-of-the-art neural architectures</em>
-</p>
 
 ---
 
